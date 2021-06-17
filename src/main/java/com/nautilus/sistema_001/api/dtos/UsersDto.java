@@ -76,12 +76,12 @@ public class UsersDto {
     @Override
     public String toString() {
         return "UserDto {" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", profile=" + profile +
-                ", email='" + email + '\'' +
-                ", emailConfirm='" + emailConfirm + '\'' +
-                ", password='" + password + '\'' +
+                "id = " + id +
+                ", name = '" + name + '\'' +
+                ", profile = " + profile +
+                ", email = '" + email + '\'' +
+                ", emailConfirm = '" + emailConfirm + '\'' +
+                ", password = '" + password + '\'' +
                 '}';
     }
 }
