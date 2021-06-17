@@ -75,7 +75,7 @@ public class UsersDto {
 
     @Override
     public String toString() {
-        return "UserDto{" +
+        return "UserDto {" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", profile=" + profile +
