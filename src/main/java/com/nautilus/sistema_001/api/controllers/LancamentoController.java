@@ -70,7 +70,7 @@ public class LancamentoController {
 
         log.info("Adicionando lancamento: {}", lancamentoDto.getId());
         Response<LancamentoDto> response = new Response<>();
-        Optional<Users> user = usersService.findById(lancamentoDto.getIdUsuario());
+        Optional<Users> user = usersService.findByEmail(lancamentoDto.getUsuarioEmail());
 
         this.validateExistData(lancamentoDto, user, result);
 
@@ -113,7 +113,7 @@ public class LancamentoController {
 
     private Optional<DespesaTypeEnum> getDespesaTypeEnum(String tp) {
         return Arrays.stream(DespesaTypeEnum.values())
-                .filter(dte -> dte.getDescricao().equals(tp)).findAny();
+                .filter(dte -> dte.getChave().equals(tp)).findAny();
     }
 
     private Lancamento convertDtoToEntity(LancamentoDto dto, Optional<Users> user) throws ParseException {
@@ -133,7 +133,7 @@ public class LancamentoController {
     private LancamentoDto convertEntityToDto(Lancamento lancamento) {
         LancamentoDto dto = new LancamentoDto();
         dto.setId(Optional.of(lancamento.getId()));
-        dto.setIdUsuario(lancamento.getUsers().getId());
+        dto.setUsuarioEmail(lancamento.getUsers().getEmail());
         dto.setTpDespesa(lancamento.getTpDespesa() != null ? lancamento.getTpDespesa().getDescricao() : null);
         dto.setTpLancamento(lancamento.getTpLancamento().toString());
         dto.setValor(lancamento.getValor().toString());

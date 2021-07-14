@@ -40,6 +40,7 @@ public class Lancamento implements Serializable {
         this.users = users;
     }
 
+    @Temporal(TemporalType.DATE)
     @Column(name = "dt_lancamento", nullable = false)
     public Date getDtLancamento() {
         return dtLancamento;
@@ -87,21 +88,16 @@ public class Lancamento implements Serializable {
         this.observacao = observacao;
     }
 
-    @PrePersist
-    public void prePersist() {
-        dtLancamento = new Date();
-    }
-
     @Override
     public String toString() {
         return "Lancamento{" +
                 "id=" + id +
-                ", users=" + users +
+                ", users=" + users.getId() +
                 ", dtLancamento=" + dtLancamento +
                 ", valor=" + valor +
                 ", tpLancamento=" + tpLancamento +
                 ", tpDespesa=" + tpDespesa +
-                ", observacao='" + observacao +
+                ", observacao=" + observacao +
                 '}';
     }
 }
