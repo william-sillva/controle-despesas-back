@@ -9,7 +9,7 @@ import java.util.Optional;
 public class LancamentoDto {
 
     private Optional<Long> id = Optional.empty();
-    private String usuarioEmail;
+    private Long usuarioId;
     private String dtLancamento;
     private String valor;
     private String tpLancamento;
@@ -24,13 +24,13 @@ public class LancamentoDto {
         this.id = id;
     }
 
-    @NotNull(message = "Email do Usuário não pode ser vazio.")
-    public String getUsuarioEmail() {
-        return usuarioEmail;
+    @NotNull(message = "Id do Usuário não pode ser vazio.")
+    public Long getUsuarioId() {
+        return usuarioId;
     }
 
-    public void setUsuarioEmail(String usuarioEmail) {
-        this.usuarioEmail = usuarioEmail;
+    public void setUsuarioId(Long usuarioId) {
+        this.usuarioId = usuarioId;
     }
 
     @NotEmpty(message = "Data não pode ser vazia.")
@@ -83,7 +83,7 @@ public class LancamentoDto {
     public String toString() {
         return "LancamentoDto{" +
                 "id=" + id +
-                ", emailUsuario=" + usuarioEmail +
+                ", usuarioId=" + usuarioId +
                 ", dtLancamento='" + dtLancamento + '\'' +
                 ", valor='" + valor + '\'' +
                 ", tpLancamento='" + tpLancamento + '\'' +

@@ -14,7 +14,7 @@ public class Lancamento implements Serializable {
 
     private static final long serialVersionUID = 2988874688680345431L;
     private Long id;
-    private Users users;
+    private Users user;
     private Date dtLancamento;
     private BigDecimal valor;
     private LancamentoTypeEnum tpLancamento;
@@ -32,12 +32,12 @@ public class Lancamento implements Serializable {
     }
 
     @ManyToOne(fetch = FetchType.EAGER)
-    public Users getUsers() {
-        return users;
+    public Users getUser() {
+        return user;
     }
 
-    public void setUsers(Users users) {
-        this.users = users;
+    public void setUser(Users users) {
+        this.user = users;
     }
 
     @Temporal(TemporalType.DATE)
@@ -92,7 +92,7 @@ public class Lancamento implements Serializable {
     public String toString() {
         return "Lancamento{" +
                 "id=" + id +
-                ", users=" + users.getId() +
+                ", users=" + user.getId() +
                 ", dtLancamento=" + dtLancamento +
                 ", valor=" + valor +
                 ", tpLancamento=" + tpLancamento +

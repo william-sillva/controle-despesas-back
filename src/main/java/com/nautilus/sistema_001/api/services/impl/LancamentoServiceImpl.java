@@ -1,12 +1,16 @@
 package com.nautilus.sistema_001.api.services.impl;
 
+import com.nautilus.sistema_001.api.dtos.LancamentoPagDto;
 import com.nautilus.sistema_001.api.entities.Lancamento;
 import com.nautilus.sistema_001.api.repositories.LancamentoRepository;
 import com.nautilus.sistema_001.api.services.LancamentoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
+import java.util.Date;
 import java.util.Optional;
 
 public class LancamentoServiceImpl implements LancamentoService {
@@ -32,5 +36,13 @@ public class LancamentoServiceImpl implements LancamentoService {
     public void remove(Long id) {
         log.info("Removendo lancamento {}", id);
         this.lancamentoRepository.deleteById(id);
+    }
+
+    @Override
+    public Page<Lancamento> findByUserIdPag(LancamentoPagDto lancPagDto, PageRequest pageRequest) {
+        log.info("Recuperando Lançamentos paginado por usuário ID {}, dtIni {}, dtFin {}",
+                lancPagDto.getUserId(), lancPagDto.getDtInit(), lancPagDto.getDtFin());
+        return this.lancamentoRepository.findByFilter(
+                lancPagDto.getUserId(), lancPagDto.getDateIn(), lancPagDto.getDateFn(), pageRequest);
     }
 }

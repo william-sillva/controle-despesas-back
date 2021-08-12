@@ -2,6 +2,7 @@ package com.nautilus.sistema_001.api.controllers;
 
 import com.nautilus.sistema_001.api.dtos.EnumDto;
 import com.nautilus.sistema_001.api.dtos.LancamentoDto;
+import com.nautilus.sistema_001.api.dtos.LancamentoPagDto;
 import com.nautilus.sistema_001.api.entities.Lancamento;
 import com.nautilus.sistema_001.api.entities.Users;
 import com.nautilus.sistema_001.api.enums.DespesaTypeEnum;
@@ -14,8 +15,12 @@ import com.nautilus.sistema_001.api.services.impl.UsersServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.ObjectError;
@@ -50,7 +55,10 @@ public class LancamentoController {
     @Import({LancamentoServiceImpl.class, UsersServiceImpl.class})
     static class Config {}
 
-    @GetMapping
+    @Value("${paginacao.qtd_por_pagina}")
+    private int qtdPorPagina;
+
+    @GetMapping("/despesas")
     public ResponseEntity<Response<Collection<EnumDto>>> getTypesDespesas() {
         log.info("Recuperando Tipos de Despesas:");
         Response<Collection<EnumDto>> response = new Response<>();
@@ -64,13 +72,54 @@ public class LancamentoController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping(value = "/{id}/{userId}")
+    public ResponseEntity<Response<LancamentoDto>> getLancamento(@PathVariable("id") Long id,
+                                                             @PathVariable("userId") Long userId) {
+        log.info("Recuperando lançamento pelo ID: {} e usuário: {}", id, userId);
+        Response<LancamentoDto> response = new Response<>();
+        Optional<Users> user = usersService.findById(userId);
+        Optional<Lancamento> lancamento = lancamentoService.findById(id);
+
+        this.validateFindLaunchUser(user, lancamento, response);
+
+        if (!response.getErrors().isEmpty()) {
+            log.error("Erro ao validar dados de recuperação de lancamento: {}", response.getErrors());
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        LancamentoDto lancamentoDto = this.convertEntityToDto(lancamento.get());
+        response.setData(lancamentoDto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/usuario")
+    public ResponseEntity<Response<Page<LancamentoDto>>> listForFilter(@RequestBody LancamentoPagDto lancPagDto)
+    throws ParseException {
+
+        log.info("Recuperando lançamentos por ID do usuário: {}, página: {}", lancPagDto.getUserId(), lancPagDto.getPag());
+        Response<Page<LancamentoDto>> response = new Response<>();
+
+        PageRequest pageRequest = PageRequest.of(
+                lancPagDto.getPag(),
+                this.qtdPorPagina,
+                Sort.Direction.valueOf(lancPagDto.getDir()),
+                lancPagDto.getOrd());
+        lancPagDto.setDateIn(this.sdf.parse(lancPagDto.getDtInit()));
+        lancPagDto.setDateFn(this.sdf.parse(lancPagDto.getDtFin()));
+        Page<Lancamento> lancamentos = this.lancamentoService.findByUserIdPag(lancPagDto, pageRequest);
+        Page<LancamentoDto> lancamentosDto = lancamentos.map(this::convertEntityToDto);
+
+        response.setData(lancamentosDto);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping
     public ResponseEntity<Response<LancamentoDto>> addLancamento(@Valid @RequestBody LancamentoDto lancamentoDto,
                                                                  BindingResult result) throws ParseException {
 
-        log.info("Adicionando lancamento: {}", lancamentoDto.getId());
+        log.info("Adicionando lancamento para o usuário: {}", lancamentoDto.getUsuarioId());
         Response<LancamentoDto> response = new Response<>();
-        Optional<Users> user = usersService.findByEmail(lancamentoDto.getUsuarioEmail());
+        Optional<Users> user = usersService.findById(lancamentoDto.getUsuarioId());
 
         this.validateExistData(lancamentoDto, user, result);
 
@@ -84,6 +133,25 @@ public class LancamentoController {
         this.lancamentoService.persist(lancamento);
         response.setData(this.convertEntityToDto(lancamento));
 
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping(value = "/{id}/{userId}")
+    public ResponseEntity<Response<String>> removeLancamento(@PathVariable("id") Long id,
+                                                             @PathVariable("userId") Long userId) {
+        log.info("Removendo lançamento pelo ID: {} e usuário: {}", id, userId);
+        Response<String> response = new Response<>();
+        Optional<Users> user = usersService.findById(userId);
+        Optional<Lancamento> lancamento = lancamentoService.findById(id);
+
+        this.validateDeleteLaunchUser(user, lancamento, response);
+
+        if (!response.getErrors().isEmpty()) {
+            log.error("Erro ao validar dados da remoção do lancamento: {}", response.getErrors());
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        this.lancamentoService.remove(id);
         return ResponseEntity.ok(response);
     }
 
@@ -103,7 +171,42 @@ public class LancamentoController {
                 result.addError(new ObjectError("tipoDespesa", "Tipo de Despesa inexistente."));
             }
         }
+    }
 
+    private void validateDeleteLaunchUser(Optional<Users> user, Optional<Lancamento> lancamento,
+                                          Response<String> response) {
+
+        if (!user.isPresent()) {
+            response.getErrors().add("Usuário inexistente.");
+        }
+
+        if (!lancamento.isPresent()) {
+            response.getErrors().add("Lançamento inexistente.");
+        }
+
+        if (user.isPresent() && lancamento.isPresent()) {
+            if (!user.get().getId().equals(lancamento.get().getUser().getId())) {
+                response.getErrors().add("Usuário não tem permissão para remover este registro.");
+            }
+        }
+    }
+
+    private void validateFindLaunchUser(Optional<Users> user, Optional<Lancamento> lancamento,
+                                          Response<LancamentoDto> response) {
+
+        if (!user.isPresent()) {
+            response.getErrors().add("Usuário inexistente.");
+        }
+
+        if (!lancamento.isPresent()) {
+            response.getErrors().add("Lançamento inexistente.");
+        }
+
+        if (user.isPresent() && lancamento.isPresent()) {
+            if (!user.get().getId().equals(lancamento.get().getUser().getId())) {
+                response.getErrors().add("Registro não localizado.");
+            }
+        }
     }
 
     private Optional<LancamentoTypeEnum> getLancamentoTypeEnum(String tp) {
@@ -118,7 +221,11 @@ public class LancamentoController {
 
     private Lancamento convertDtoToEntity(LancamentoDto dto, Optional<Users> user) throws ParseException {
         Lancamento lancamento = new Lancamento();
-        lancamento.setUsers(user.get());
+
+        if (!dto.getId().isEmpty()) {
+            lancamento.setId(dto.getId().get());
+        }
+        lancamento.setUser(user.get());
         lancamento.setDtLancamento(this.sdf.parse(dto.getDtLancamento()));
         lancamento.setValor(new BigDecimal(dto.getValor()));
         lancamento.setTpLancamento(this.getLancamentoTypeEnum(dto.getTpLancamento()).get());
@@ -133,7 +240,7 @@ public class LancamentoController {
     private LancamentoDto convertEntityToDto(Lancamento lancamento) {
         LancamentoDto dto = new LancamentoDto();
         dto.setId(Optional.of(lancamento.getId()));
-        dto.setUsuarioEmail(lancamento.getUsers().getEmail());
+        dto.setUsuarioId(lancamento.getUser().getId());
         dto.setTpDespesa(lancamento.getTpDespesa() != null ? lancamento.getTpDespesa().getDescricao() : null);
         dto.setTpLancamento(lancamento.getTpLancamento().toString());
         dto.setValor(lancamento.getValor().toString());
