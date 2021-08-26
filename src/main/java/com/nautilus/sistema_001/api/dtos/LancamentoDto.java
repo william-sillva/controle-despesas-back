@@ -84,10 +84,10 @@ public class LancamentoDto {
         return "LancamentoDto{" +
                 "id=" + id +
                 ", usuarioId=" + usuarioId +
-                ", dtLancamento='" + dtLancamento + '\'' +
-                ", valor='" + valor + '\'' +
-                ", tpLancamento='" + tpLancamento + '\'' +
-                ", tpDespesa='" + tpDespesa + '\'' +
+                ", dtLancamento='" + dtLancamento +
+                ", valor='" + valor +
+                ", tpLancamento='" + tpLancamento +
+                ", tpDespesa='" + tpDespesa +
                 ", observacao=" + observacao +
                 '}';
     }
