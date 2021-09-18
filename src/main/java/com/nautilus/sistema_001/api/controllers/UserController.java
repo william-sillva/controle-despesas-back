@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.BindingResult;
@@ -57,7 +56,6 @@ public class UserController {
     public ResponseEntity<Response<UsersDto>> getUserByEmail(@RequestBody UsersDto userDto) {
         log.info("Recuperando usuário logado pelo Email: {}", userDto.getEmail());
         Response<UsersDto> response = new Response<>();
-
         Optional<Users> user = this.usersService.findByEmail(userDto.getEmail());
 
         if (!user.isPresent()) {

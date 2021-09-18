@@ -4,13 +4,16 @@ import com.nautilus.sistema_001.api.dtos.EnumDto;
 import com.nautilus.sistema_001.api.dtos.LancamentoDto;
 import com.nautilus.sistema_001.api.dtos.LancamentoPagDto;
 import com.nautilus.sistema_001.api.entities.Lancamento;
+import com.nautilus.sistema_001.api.entities.UserSaldo;
 import com.nautilus.sistema_001.api.entities.Users;
 import com.nautilus.sistema_001.api.enums.DespesaTypeEnum;
 import com.nautilus.sistema_001.api.enums.LancamentoTypeEnum;
 import com.nautilus.sistema_001.api.response.Response;
 import com.nautilus.sistema_001.api.services.LancamentoService;
+import com.nautilus.sistema_001.api.services.UserSaldoService;
 import com.nautilus.sistema_001.api.services.UsersService;
 import com.nautilus.sistema_001.api.services.impl.LancamentoServiceImpl;
+import com.nautilus.sistema_001.api.services.impl.UserSaldoServiceImpl;
 import com.nautilus.sistema_001.api.services.impl.UsersServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +54,11 @@ public class LancamentoController {
     @Autowired
     private UsersService usersService;
 
+    @Autowired
+    private UserSaldoService userSaldoService;
+
     @Configuration
-    @Import({LancamentoServiceImpl.class, UsersServiceImpl.class})
+    @Import({LancamentoServiceImpl.class, UsersServiceImpl.class, UserSaldoServiceImpl.class})
     static class Config {}
 
     @Value("${paginacao.qtd_por_pagina}")
@@ -89,6 +95,21 @@ public class LancamentoController {
 
         LancamentoDto lancamentoDto = this.convertEntityToDto(lancamento.get());
         response.setData(lancamentoDto);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping(value = "/{userId}")
+    public ResponseEntity<Response<UserSaldo>> getSaldoUsua(@PathVariable("userId") Long userId) {
+        log.info("Recuperando saldo do usuario pelo ID_USER: {}", userId);
+        Response<UserSaldo> response = new Response<>();
+        Optional<UserSaldo> userSaldoOpt = this.userSaldoService.findByIdUsuario(userId);
+        UserSaldo userSaldo = userSaldoOpt.get();
+
+        if (userSaldoOpt.isEmpty()) {
+            userSaldo.setSaldo(new BigDecimal(0L));
+        }
+
+        response.setData(userSaldo);
         return ResponseEntity.ok(response);
     }
 
@@ -129,6 +150,7 @@ public class LancamentoController {
             return ResponseEntity.badRequest().body(response);
         }
 
+        handleUserSaldo(lancamentoDto, user);
         Lancamento lancamento = this.convertDtoToEntity(lancamentoDto, user);
         this.lancamentoService.persist(lancamento);
         response.setData(this.convertEntityToDto(lancamento));
@@ -151,8 +173,72 @@ public class LancamentoController {
             return ResponseEntity.badRequest().body(response);
         }
 
+        LancamentoDto lancamentoDto = this.convertEntityToDto(lancamento.get());
+        handleReverseUserSaldo(lancamentoDto);
         this.lancamentoService.remove(id);
         return ResponseEntity.ok(response);
+    }
+
+    private void handleUserSaldo(LancamentoDto lancamentoDto, Optional<Users> user) {
+        BigDecimal value = new BigDecimal(lancamentoDto.getValor());
+        Optional<UserSaldo> userSaldo = this.userSaldoService.findByIdUsuario(lancamentoDto.getUsuarioId());
+
+        if (userSaldo.isEmpty()) {
+            persistFirstUserSaldo(lancamentoDto, user, value);
+        } else {
+            handleReverseUserSaldo(lancamentoDto);
+            BigDecimal saldoPersist = getSaldoUpdated(lancamentoDto, value, userSaldo);
+            userSaldo.get().setSaldo(saldoPersist);
+            this.userSaldoService.persist(userSaldo.get());
+        }
+    }
+
+    /**
+     * ESTORNAR SALDO
+     */
+    private void handleReverseUserSaldo(LancamentoDto lancamentoDto) {
+        // se tem id - alteracao/exclusao
+        if (lancamentoDto.getId().isPresent()) {
+           Optional<Lancamento> lancamentoOpt = this.lancamentoService.findById(lancamentoDto.getId().get());
+           if (lancamentoOpt.isPresent()) {
+               BigDecimal saldoPersist;
+               Lancamento lancamento = lancamentoOpt.get();
+               Optional<UserSaldo> userSaldoReverse = this.userSaldoService.findByIdUsuario(lancamentoDto.getUsuarioId());
+               if (LancamentoTypeEnum.D.equals(lancamento.getTpLancamento())) {
+                   saldoPersist = userSaldoReverse.get().getSaldo().add(lancamento.getValor());
+               } else {
+                   saldoPersist = userSaldoReverse.get().getSaldo().subtract(lancamento.getValor());
+               }
+
+               userSaldoReverse.get().setSaldo(saldoPersist);
+               this.userSaldoService.persist(userSaldoReverse.get());
+           }
+        }
+    }
+
+    private BigDecimal getSaldoUpdated(LancamentoDto lancamentoDto, BigDecimal value, Optional<UserSaldo> userSaldo) {
+        BigDecimal saldoPersist;
+        if (LancamentoTypeEnum.D.toString().equals(lancamentoDto.getTpLancamento())) {
+            saldoPersist = userSaldo.get().getSaldo().subtract(value);
+        } else {
+            saldoPersist = userSaldo.get().getSaldo().add(value);
+        }
+
+        return saldoPersist;
+    }
+
+    private void persistFirstUserSaldo(LancamentoDto lancamentoDto, Optional<Users> user, BigDecimal value) {
+        BigDecimal saldoPersist;
+        if (LancamentoTypeEnum.D.toString().equals(lancamentoDto.getTpLancamento())) {
+            saldoPersist = value.multiply(new BigDecimal(-1L));
+        } else {
+            saldoPersist = value;
+        }
+
+        UserSaldo us = new UserSaldo();
+        us.setUser(user.get());
+        us.setSaldo(saldoPersist);
+        this.userSaldoService.persist(us);
     }
 
     private void validateExistData(LancamentoDto lancamentoDto, Optional<Users> user, BindingResult result) {
