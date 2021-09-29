@@ -99,14 +99,16 @@ public class LancamentoController {
     }
 
     @GetMapping(value = "/{userId}")
-    public ResponseEntity<Response<UserSaldo>> getSaldoUsua(@PathVariable("userId") Long userId) {
+    public ResponseEntity<Response<UserSaldo>> getSaldoUser(@PathVariable("userId") Long userId) {
         log.info("Recuperando saldo do usuario pelo ID_USER: {}", userId);
         Response<UserSaldo> response = new Response<>();
         Optional<UserSaldo> userSaldoOpt = this.userSaldoService.findByIdUsuario(userId);
-        UserSaldo userSaldo = userSaldoOpt.get();
+        UserSaldo userSaldo = new UserSaldo();
 
         if (userSaldoOpt.isEmpty()) {
             userSaldo.setSaldo(new BigDecimal(0L));
+        } else {
+            userSaldo = userSaldoOpt.get();
         }
 
         response.setData(userSaldo);
