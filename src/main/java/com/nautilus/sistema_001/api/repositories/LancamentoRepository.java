@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import java.util.Date;
+import java.util.List;
 
 @Transactional(readOnly = true)
 @NamedQueries({
@@ -32,4 +33,22 @@ public interface LancamentoRepository extends JpaRepository<Lancamento, Long> {
             @Param("dtIni") Date dtIni,
             @Param("dtFin") Date dtFin,
             Pageable pageable);
+
+    @Query("SELECT lanc " +
+            " FROM Lancamento lanc " +
+            " WHERE lanc.user.id = :userId " +
+            " AND lanc.dtLancamento >= :dtRef " +
+            " ORDER BY lanc.dtLancamento ASC ")
+    List<Lancamento> findDataGraphicByUserId(
+            @Param("userId") Long userId,
+            @Param("dtRef") Date dtRef);
+
+    @Query("SELECT lanc " +
+            " FROM Lancamento lanc " +
+            " WHERE lanc.user.id = :userId " +
+            " AND lanc.dtLancamento BETWEEN :dtIn AND :dtFin ")
+    List<Lancamento> findDataBetweenByUserId(
+            @Param("userId") Long userId,
+            @Param("dtIn") Date dtIn,
+            @Param("dtFin") Date dtFin);
 }

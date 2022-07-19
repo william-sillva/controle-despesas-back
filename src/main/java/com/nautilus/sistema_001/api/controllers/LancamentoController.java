@@ -1,5 +1,6 @@
 package com.nautilus.sistema_001.api.controllers;
 
+import com.nautilus.sistema_001.api.dtos.DateBalanceDto;
 import com.nautilus.sistema_001.api.dtos.EnumDto;
 import com.nautilus.sistema_001.api.dtos.LancamentoDto;
 import com.nautilus.sistema_001.api.dtos.LancamentoPagDto;
@@ -33,9 +34,7 @@ import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -115,6 +114,40 @@ public class LancamentoController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping(value = "/graphic/{userId}")
+    public ResponseEntity<Response<List<Lancamento>>> getDataGraphicUser(@PathVariable("userId") Long userId) {
+        log.info("Recuperando dados de lancamento do usuario pelo ID_USER: {}", userId);
+        Response<List<Lancamento>> response = new Response<>();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DAY_OF_MONTH, -30);
+        List<Lancamento> listLanc = this.lancamentoService.findDataGraphicByUserId(userId, calendar.getTime());
+
+        response.setData(listLanc);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping(value = "/previous-balance/{userId}")
+    public ResponseEntity<Response<List<DateBalanceDto>>> getPreviousBalanceUser(@PathVariable("userId") Long userId) {
+        log.info("Recuperando dados de lancamentos anteriores do usuario pelo ID_USER: {}", userId);
+        Response<List<DateBalanceDto>> response = new Response<>();
+
+        List<DateBalanceDto> listPrevious = new ArrayList<>();
+        for (int i = -1; i >= -4; i--) {
+            DateBalanceDto dtDto = getDatesAfter(i);
+
+            List<Lancamento> listLanc = this.lancamentoService
+                    .findDataBetweencByUserId(userId, dtDto.getDtInit().getTime(), dtDto.getDtFinal().getTime());
+
+            BigDecimal balanceValue = this.handleBalance(listLanc);
+            dtDto.setValor(balanceValue);
+            listPrevious.add(dtDto);
+        }
+
+        response.setData(listPrevious);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/usuario")
     public ResponseEntity<Response<Page<LancamentoDto>>> listForFilter(@RequestBody LancamentoPagDto lancPagDto)
     throws ParseException {
@@ -152,7 +185,7 @@ public class LancamentoController {
             return ResponseEntity.badRequest().body(response);
         }
 
-        handleUserSaldo(lancamentoDto, user);
+        this.handleUserSaldo(lancamentoDto, user);
         Lancamento lancamento = this.convertDtoToEntity(lancamentoDto, user);
         this.lancamentoService.persist(lancamento);
         response.setData(this.convertEntityToDto(lancamento));
@@ -336,5 +369,36 @@ public class LancamentoController {
         dto.setObservacao(lancamento.getObservacao());
 
         return dto;
+    }
+
+    private DateBalanceDto getDatesAfter(int month) {
+        DateBalanceDto dateDto = new DateBalanceDto();
+
+        Calendar calIn = Calendar.getInstance();
+        calIn.add(Calendar.MONTH, month);
+        int dayInit = calIn.getActualMinimum(Calendar.DAY_OF_MONTH);
+        calIn.set(Calendar.DAY_OF_MONTH, dayInit);
+        dateDto.setDtInit(calIn);
+
+        Calendar calFn = Calendar.getInstance();
+        calFn.add(Calendar.MONTH, month);
+        int dayFin = calFn.getActualMaximum(Calendar.DAY_OF_MONTH);
+        calFn.set(Calendar.DAY_OF_MONTH, dayFin);
+        dateDto.setDtFinal(calFn);
+
+        return dateDto;
+    }
+
+    private BigDecimal handleBalance(List<Lancamento> listLanc) {
+        BigDecimal value = new BigDecimal(0);
+        for (Lancamento lanc : listLanc) {
+            if (LancamentoTypeEnum.C.equals(lanc.getTpLancamento())) {
+                value = value.add(lanc.getValor());
+            } else {
+                value = value.subtract(lanc.getValor());
+            }
+        }
+
+        return value;
     }
 }
